@@ -12,13 +12,30 @@ Instead of forcing all components into a single, unstable virtual environment, w
 
 **DO NOT attempt to run the entire project using a single environment.** Please refer to the specific Environment Readme files (`README_ENV1.md`, `README_ENV2.md`, etc.) for exact setup and execution instructions.
 
+## 📦 Data & Weights Download (Action Required)
+
+Due to GitHub's file size limits, the `data` directory (containing the Tennis, BMX-Trees, and full DAVIS datasets) and the heavy pre-trained model weights are not included in this repository.
+
+**👉 Please download the complete data and weights from our Google Drive:**
+**[Data & Weights](https://drive.google.com/drive/folders/1gHMDOBe13MfARnnJaSH83mVpkj3Qwfoe?usp=sharing)**
+
+*Instructions:* After downloading the `.zip` file from the link above, extract it and place the `data/` folder  directly into the root directory of this project before running any scripts.
+
 ## 📂 Repository Structure
 
 Our repository is organized to physically isolate the code and dependencies for different environments while sharing the same underlying data and third-party tools.
 
 ```text
 PROJECT3_INTEGRATED/
-├── data/                       # Shared datasets (Tennis, BMX-Trees, DAVIS, etc.)
+├── data/                       # Shared datasets (Download from Google Drive)
+│   ├── bmx-trees/              # Image sequence for BMX dataset
+│   ├── bmx-trees_mask/         # Ground truth masks for BMX
+│   ├── DAVIS/                  # Full DAVIS benchmark dataset
+│   ├── my_video/               # Self-captured wild video frames
+│   ├── tennis/                 # Image sequence for Tennis dataset
+│   ├── tennis_mask/            # Ground truth masks for Tennis
+│   ├── .gitkeep                # Git placeholder to retain the folder structure
+│   └── *.mp4                   # Converted video files (used as inputs for Track-Anything UI)
 ├── part1/                      # Baseline approach
 │   ├── env1/                   # Code executable under Environment 1
 │   ├── env2/                   # Code executable under Environment 2

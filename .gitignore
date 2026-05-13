@@ -1,9 +1,12 @@
 # Datasets and Ground Truth Masks
 data/
+!data/.gitkeep
 
 # Model outputs, generated masks, and inpainted videos
 results/
+!results/.gitkeep
 third_party/
+!third_party/.gitkeep
 !third_party/Track-Anything/run_tracking.py
 *.mp4
 *.avi
