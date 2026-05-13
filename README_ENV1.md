@@ -6,8 +6,6 @@ This repository documentation outlines the execution steps for **Environment 1 (
 
 ## Environment Setup
 
-## Environment Setup
-
 ### 1. Conda Environment
 ```bash
 # Create and activate a clean Conda environment for ENV1
@@ -25,12 +23,12 @@ Since this project utilizes heavy models, you need to clone the official reposit
 # From the project root, setup the shared third_party directory
 mkdir third_party
 cd third_party
-git clone [https://github.com/gaomingqi/Track-Anything.git](https://github.com/gaomingqi/Track-Anything.git)
-git clone [https://github.com/sczhou/ProPainter.git](https://github.com/sczhou/ProPainter.git)
-git clone [https://github.com/lixiaowen-xw/diffueraser.git](https://github.com/lixiaowen-xw/diffueraser.git) DiffuEraser
+git clone https://github.com/gaomingqi/Track-Anything.git
+git clone https://github.com/sczhou/ProPainter.git
+git clone https://github.com/lixiaowen-xw/diffueraser.git
 cd ..
 ```
-*Note: Follow the instructions in their respective official repos to download the weights, or extract our pre-packaged [weights](https://drive.google.com/drive/folders/1gHMDOBe13MfARnnJaSH83mVpkj3Qwfoe?usp=sharing) directly into the third_party/ directory.*
+**Note**: Follow the instructions in their respective official repos to download the weights, or extract our pre-packaged [weights](https://drive.google.com/drive/folders/1gHMDOBe13MfARnnJaSH83mVpkj3Qwfoe?usp=sharing) directly into the third_party/ directory.
 
 ## Repository Structure (Env1 Focus)
 ```Plaintext
@@ -77,7 +75,7 @@ python part1/env1/Mask-RCNN/main.py \
     --dataset_name tennis \
     --data_dir data/tennis \
     --gt_mask_dir data/tennis_mask \
-    --output_base_dir results/part1_baseline
+    --output_base_dir results/part1/MaskRCNN
 ```
 
 #### 2. BMX-Trees Dataset
@@ -86,16 +84,16 @@ python part1/env1/Mask-RCNN/main.py \
     --dataset_name bmx-trees \
     --data_dir data/bmx-trees \
     --gt_mask_dir data/bmx-trees_mask \
-    --output_base_dir results/part1_baseline
+    --output_base_dir results/part1/MaskRCNN
 ```
 
 #### 3. Wild Video Dataset (Mandatory)
-For your self-captured video, there are no Ground Truth masks. Ensure your extracted frames are placed in ../data/wild_video. Omit the --gt_mask_dir argument.
+For our self-captured video, there are no Ground Truth masks. 
 ```bash
 python part1/env1/Mask-RCNN/main.py \
-    --dataset_name wild_video \
-    --data_dir data/wild_video \
-    --output_base_dir results/part1_baseline
+    --dataset_name my_video \
+    --data_dir data/my_video \
+    --output_base_dir results/part1/MaskRCNN
 ```
 
 #### 4. DAVIS Dataset Full Evaluation (Batch Processing)
@@ -105,12 +103,12 @@ To rigorously evaluate the accuracy of our baseline extraction algorithm across 
 # Run mask evaluation only
 python part1/env1/Mask-RCNN/run_davis.py \
     --davis_root data/DAVIS \
-    --output_dir results/part1_davis_eval
+    --output_dir results/part1/davis
 
 # Run with spatial-temporal inpainting (Time-consuming)
 python part1/env1/Mask-RCNN/run_davis.py \
     --davis_root data/DAVIS \
-    --output_dir results/part1_davis_eval \
+    --output_dir results/part1/davis \
     --run_inpainting
 ```
 
@@ -135,6 +133,9 @@ To ensure the highest mask quality ($\mathcal{J}_M$ and $\mathcal{J}_R$), we emp
 ### How to Run
 
 #### Step 0: Data Preparation (Image to Video)
+
+**Note: If you downloaded data from our google drive, you can skipped this step as we already generate it for you.**
+
 The Track-Anything UI requires a single video file (.mp4) for input. Use the provided script to convert the image sequence of a dataset into a video:
 
 ```bash
@@ -207,17 +208,19 @@ To demonstrate its real-world effectiveness without the impracticality of manual
 To reproduce our results on the challenging subset, please follow these exact steps to bridge the interactive UI and our automated evaluation script:
 
 1. Prepare the video input:
+   
+**Note: If you downloaded data from our google drive, you can skipped this step as we already generate it for you.**
 ```bash
 python utils/make_video.py --input_folder data/DAVIS/JPEGImages/480p/dog --fps 24
 ```
 
-2. Track via UI:
+1. Track via UI:
 ```bash
 python part2/env1/Track-Anything/launch_ui.py
 ```
-3. Move generated masks to `results/part2_davis_eval/dog/masks/`.
+1. Move generated masks to `results/part2_davis_eval/dog/masks/`.
 
-4. Execute decoupled evaluation:
+2. Execute decoupled evaluation:
 ```bash
 python part2/env1/Track-Anything/run_davis_subset.py \
     --davis_root data/DAVIS \
