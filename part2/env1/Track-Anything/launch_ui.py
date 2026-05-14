@@ -9,7 +9,7 @@ def main():
     os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
     
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    track_anything_dir = os.path.abspath(os.path.join(current_dir, "..", "third_party", "Track-Anything"))
+    track_anything_dir = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "third_party", "Track-Anything"))
     
     if not os.path.exists(track_anything_dir):
         print(f"[Error] Could not find Track-Anything directory at {track_anything_dir}")

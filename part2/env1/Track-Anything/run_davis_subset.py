@@ -9,7 +9,7 @@ import numpy as np
 
 # Dynamically get absolute paths
 current_script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root_dir = os.path.abspath(os.path.join(current_script_dir, ".."))
+project_root_dir = os.path.abspath(os.path.join(current_script_dir, "..", ".."))
 sys.path.append(project_root_dir)
 
 from utils.metrics import evaluate_mask_quality

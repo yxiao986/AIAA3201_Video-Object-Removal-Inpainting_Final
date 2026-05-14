@@ -8,7 +8,11 @@ import numpy as np
 from tqdm import tqdm
 
 # Add parent directory to path to import utils
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+current_script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root_dir = os.path.abspath(os.path.join(current_script_dir, "..", "..", ".."))
+if project_root_dir not in sys.path:
+    sys.path.append(project_root_dir)
+    
 from utils.metrics import evaluate_mask_quality
 from mask_extractor import MaskExtractor
 from inpainter import Inpainter

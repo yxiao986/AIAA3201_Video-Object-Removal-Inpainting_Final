@@ -8,7 +8,11 @@ from tqdm import tqdm
 import numpy as np
 
 # Add parent directory to path to import utils
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+current_script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root_dir = os.path.abspath(os.path.join(current_script_dir, "..", "..", ".."))
+if project_root_dir not in sys.path:
+    sys.path.append(project_root_dir)
+
 from utils.metrics import evaluate_mask_quality
 from mask_extractor import MaskExtractor
 from inpainter import Inpainter
@@ -28,7 +32,7 @@ def parse_args():
 def load_frames(folder_path, is_mask=False):
     """Loads images from a directory, sorted alphabetically."""
     if not folder_path or not os.path.exists(folder_path):
-        return []
+        return [],[]
     
     file_paths = sorted(glob.glob(os.path.join(folder_path, '*.jpg')) + 
                         glob.glob(os.path.join(folder_path, '*.png')))

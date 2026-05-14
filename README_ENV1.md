@@ -156,7 +156,7 @@ python part2/env1/Track-Anything/launch_ui.py
 2. Upload your target video frames (e.g., `data/tennis`.
 3. Click on the target object (e.g., the tennis player) in the first frame
 4. Click "Add new object", then click "Tracking".
-5. Once tracking is 100% complete, manually move all the generated `.png` mask files from `third_party/Track-Anything/result/mask/tennis/` to your project's target directory: `results/part2_sota/tennis/masks/`.
+5. Once tracking is 100% complete, manually move all the generated `.png` mask files from `third_party/Track-Anything/result/mask/tennis/` to your project's target directory: `results/part2/Track-Anything/tennis/masks`.
 
 #### Step 2: Evaluation & Inpainting
 Once the masks are saved, open a new terminal and run the main orchestration script:
@@ -165,12 +165,22 @@ python part2/env1/Track-Anything/main.py \
     --dataset_name tennis \
     --data_dir data/tennis \
     --gt_mask_dir data/tennis_mask \
-    --output_base_dir results/part2_sota
+    --output_base_dir results/part2/Track-Anything
 ```
 *The pipeline will automatically apply mask dilation, compute J_M and J_R metrics, and save the final inpainted video frames to `results/part2_sota/tennis/inpainted/`.*
 
-### ⚠️ Bug Fix in Track-Anything (app.py)
+### ⚠️ Mandatory Bug Fixes in Track-Anything (app.py)
 
+Before running the Web UI, you **must** manually patch two critical bugs in the original author's `app.py` within the `third_party/Track-Anything/` directory to prevent immediate crashes on local machines.
+
+#### Fix 1: Hardcoded CUDA Device (Invalid Device Ordinal Error)
+
+The original author hardcoded the target GPU to their specific server setup (`cuda:3`). On single-GPU systems or machines without a 4th GPU, this causes an immediate `RuntimeError: CUDA error: invalid device ordinal`.
+* **Action:** Open `third_party/Track-Anything/app.py` and **comment out or delete** the line where the device is forcefully overwritten (around line 381):
+  ```python
+  # args.device = "cuda:3"  <-- DELETE OR COMMENT OUT THIS LINE
+    ```
+#### Fix 2: Deprecated AV Package Crash (Video Generation)
 The modern `torchvision.io.write_video` function in `app.py` relies on deprecated versions of the `av` package (`<10.0.0`), which no longer have pre-compiled binaries available on PyPI, leading to Cython compilation crashes on Windows.
 
 To resolve this without altering the environment requirements, **we reverted to the author's original (commented out) OpenCV implementation** for video generation (around line 347 in `app.py`), with an added RGB-to-BGR color channel conversion to prevent color inversion:
@@ -178,16 +188,35 @@ To resolve this without altering the environment requirements, **we reverted to 
 ```python
 # Reverted and patched video generation function:
 def generate_video_from_frames(frames, output_path, fps=30):
-    import cv2, os, np
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
-    height, width, _ = frames[0].shape
-    video = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), int(fps), (width, height))
+
+    height, width, layers = frames[0].shape
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    video = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
     for frame in frames:
-        # Added RGB2BGR conversion
-        video.write(cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR))
-    video.release()
+        bgr_frame = cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR)
+        video.write(bgr_frame)
+    
+    video.release()    
     return output_path
+```
+
+#### Fix 3: Force PNG Mask Export
+By default, the original repository disables mask saving to save space, and even if enabled, exports them as `.npy` matrices instead of image files. To integrate seamlessly with our evaluation pipeline, we must force `.png` exportation.
+* **Action:** Open `third_party/Track-Anything/app.py`. In line 270, insert:
+```python
+# ==========================================================
+    mask_save_dir = os.path.join('./result/mask', video_state["video_name"].split('.')[0])
+    os.makedirs(mask_save_dir, exist_ok=True)
+
+    if "masks" in video_state and video_state["masks"] is not None:
+        for i, mask in enumerate(video_state["masks"]):
+            cv2.imwrite(os.path.join(mask_save_dir, f"{i:05d}.png"), (mask * 255).astype(np.uint8))
+        print(f"\n Mask sequence has been saved to {mask_save_dir}\n")
+    # ==========================================================
+
+
 ```
 
 
@@ -211,7 +240,11 @@ To reproduce our results on the challenging subset, please follow these exact st
    
 **Note: If you downloaded data from our google drive, you can skipped this step as we already generate it for you.**
 ```bash
+# Single Sequence Mode
 python utils/make_video.py --input_folder data/DAVIS/JPEGImages/480p/dog --fps 24
+
+# Batch Mode
+python utils/make_video.py --input_folder data/DAVIS/JPEGImages/480p --fps 24
 ```
 
 1. Track via UI:
@@ -224,11 +257,31 @@ python part2/env1/Track-Anything/launch_ui.py
 ```bash
 python part2/env1/Track-Anything/run_davis_subset.py \
     --davis_root data/DAVIS \
-    --output_dir results/part2_davis_eval \
+    --output_dir results/part2/Track-Anything/davis \
     --target_seqs dog
 ```
 
-The final SOTA inpainted video frames and the tracking evaluation metrics (`track_anything_subset_metrics.json`) will be generated inside `results/part2_davis_eval/dog/`.
+The final SOTA inpainted video frames and the tracking evaluation metrics (`track_anything_subset_metrics.json`) will be generated inside `results/part2/Track-Anything/davis/dog/`.
+
+#### Step-by-Step Reproduction Guide (Route B: Fully Automated Global Evaluation)
+
+To objectively measure the absolute "Tracking Upper-Bound" of the Track-Anything (XMem) model across the **entire 50-sequence DAVIS dataset** without requiring 50 manual human interventions, we developed a fully automated batch-processing script.
+
+This script utilizes a **First-Frame GT Injection** strategy: it automatically reads the exact ground-truth mask of the very first frame for each video sequence, injects it directly into the XMem memory module as the initial prompt, and allows the model to autonomously propagate the tracking for all subsequent frames. 
+
+**Execution Command:**
+Since this bypasses the Web UI and network overhead, execution is extremely fast (approx. 25-30 FPS). Run the following command from the project root:
+
+```bash
+python part2/env1/Track-Anything/run_davis_auto.py \
+    --davis_root data/DAVIS \
+    --output_dir results/part2/Track-Anything/davis
+```
+
+Generated masks for all 50 sequences will be organized under `results/part2/Track-Anything/davis/[seq_name]/masks/`.
+
+The final, overarching global tracking metrics ($\mathcal{J}_M$ and $\mathcal{J}_R$) across the entire benchmark will be aggregated and saved in `results/part2/Track-Anything/davis/track_anything_davis_global.json`.
+
 
 ## Part 3: Exploration - Generative Video Inpainting
 
@@ -267,10 +320,29 @@ python part3/env1/ProPainter_Explore/main.py \
 
 **2. Quantitative Evaluation (Metric Testing with Stationary Masks)**
 ```Bash
+# Evaluate the Traditional Baseline (Pure ProPainter):
+python part3/env1/ProPainter_Explore/main.py \
+  --dataset_name bmx-trees \
+  --clean_data_dir data/bmx-trees \
+  --method baseline
+
+# Evaluate the Generative Approach (SD2D + ProPainter):
 python part3/env1/ProPainter_Explore/main.py \
   --dataset_name bmx-trees \
   --prompt "a clean graffiti wall" \
   --clean_data_dir data/bmx-trees \
+  --method sd2d
+
+  python part3/env1/ProPainter_Explore/main.py \
+  --dataset_name tennis \
+  --prompt "a clean tennis court" \
+  --clean_data_dir data/tennis \
+  --method sd2d
+
+  python part3/env1/ProPainter_Explore/main.py \
+  --dataset_name my_video \
+  --prompt "a clean road" \
+  --clean_data_dir data/my_video \
   --method sd2d
   ```
 
@@ -281,16 +353,6 @@ All results for Part 3 are cleanly organized under the `results/part3_evaluation
 
 `quantitative/`: Contains generated `stationary_masks/`, raw extracted video frames for visual auditing (`extracted_baseline_frames/`, `extracted_generative_frames/`), and the final metrics.json comparing SSIM and PSNR.
 
-### Results & Comparison Analysis
-Surprisingly, our empirical results indicate that introducing Stable Diffusion via simple keyframe injection does not yield quantitative or qualitative improvements over the Baseline ProPainter.
-
-**Quantitative Results (Stationary Mask Evaluation)**
-| Dataset | Method | PSNR | SSIM |
-| :--- | :--- | :--- | :--- |
-| **Tennis** | Baseline (Pure ProPainter) | **23.61** | **0.7922** |
-| | Ours (SD + ProPainter) | 22.57 | 0.7540 |
-| **BMX-Trees** | Baseline (Pure ProPainter) | **24.99** | **0.8342** |
-| | Ours (SD + ProPainter) | 22.79 | 0.7671 |
 
 ### Advanced Exploration: Video Diffusion with DiffuEraser (Ultimate SOTA)
 
@@ -304,29 +366,31 @@ python part3/env1/ProPainter_Explore/main.py \
   --method diffueraser
 ```
 
-**Quantitative Results (Stationary Mask Evaluation)**
-| Dataset | Method | PSNR | SSIM |
-| :--- | :--- | :--- | :--- |
-| **Tennis** | Baseline (Pure ProPainter) | **24.37** | **0.7973** |
-| | Ours (SD + ProPainter) | 20.45 | 0.6758 |
-| **BMX-Trees** | Baseline (Pure ProPainter) | **25.76** | **0.8544** |
-| | Ours (SD + ProPainter) | 19.66 | 0.5609 |
 
 ### DAVIS Dataset Evaluation
 Execution Command (Batch Processing):
 ```bash
-# Run Baseline (ProPainter) on specific representative sequences:
+# Run Baseline (ProPainter) 
+# For specific sequence:
 python part3/env1/ProPainter_Explore/run_davis.py \
     --davis_root data/DAVIS \
-    --output_dir results/part3_davis_eval \
     --target_seqs camel drift-chicane \
     --method baseline
 
-# Run DiffuEraser on the exact same sequences for side-by-side comparison:
+# Run on the whole DAVIS dataset
 python part3/env1/ProPainter_Explore/run_davis.py \
     --davis_root data/DAVIS \
-    --output_dir results/part3_davis_eval \
+    --method baseline
+
+# Run Generative Approach (SD2D + ProPainter)
+python part3/env1/ProPainter_Explore/run_davis.py \
+    --davis_root data/DAVIS \
     --target_seqs camel drift-chicane \
+    --method diffueraser
+
+    # Run on the whole DAVIS dataset
+python part3/env1/ProPainter_Explore/run_davis.py \
+    --davis_root data/DAVIS \
     --method diffueraser
 ```
 

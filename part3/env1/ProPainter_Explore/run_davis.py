@@ -6,7 +6,7 @@ import numpy as np
 import argparse
 
 current_script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root_dir = os.path.abspath(os.path.join(current_script_dir, ".."))
+project_root_dir = os.path.abspath(os.path.join(current_script_dir, "..", "..", ".."))
 sys.path.append(project_root_dir)
 
 from part3.env1.ProPainter_Explore.main import run_propainter, run_diffueraser_inference
@@ -15,7 +15,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Part 3: Upper-Bound Generative Inpainting on DAVIS (GT Injection)")
     parser.add_argument("--davis_root", type=str, default=os.path.join(project_root_dir, "data", "DAVIS"), 
                         help="Path to the DAVIS root directory")
-    parser.add_argument("--output_dir", type=str, default=os.path.join(project_root_dir, "results", "part3_davis_eval"), 
+    parser.add_argument("--output_dir", type=str, default=os.path.join(project_root_dir, "results", "part3", "ProPainter_Explore", "DAVIS"), 
                         help="Directory to save comparison results")
     parser.add_argument("--method", type=str, choices=['baseline', 'diffueraser', 'sd2d'], required=True,
                         help="Which method to run (baseline or diffueraser)")

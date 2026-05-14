@@ -10,7 +10,7 @@ import json
 
 # Dynamically get absolute paths
 current_script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root_dir = os.path.abspath(os.path.join(current_script_dir, ".."))
+project_root_dir = os.path.abspath(os.path.join(current_script_dir, "..", "..", ".."))
 sys.path.append(project_root_dir)
 
 from huggingface_hub import hf_hub_download
@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument("--method", type=str, choices=['baseline', 'sd2d', 'diffueraser'], default='diffueraser',
                         help="Choose the model to run: baseline (ProPainter), sd2d, or diffueraser.")
                         
-    parser.add_argument("--output_base_dir", type=str, default=os.path.join(project_root_dir, "results", "part3_evaluation"))
+    parser.add_argument("--output_base_dir", type=str, default=os.path.join(project_root_dir, "results", "part3", "ProPainter_Explore"))
     return parser.parse_args()
 
 def run_propainter(data_dir, mask_dir, output_dir):
@@ -125,14 +125,13 @@ def run_pipeline(data_dir, mask_dir, output_dir, dataset_name, prompt, n_keyfram
     img_files = sorted(glob.glob(os.path.join(data_dir, "*.[pj][np][g]")))
     mask_files = sorted(glob.glob(os.path.join(mask_dir, "*.png")))
     total_frames = len(img_files)
-
-    method_out_dir = os.path.join(output_dir, method) 
-    os.makedirs(method_out_dir, exist_ok=True)
+    
+    os.makedirs(output_dir, exist_ok=True)
 
     print(f"      -> Executing Method: [{method.upper()}]...")
     
     if method == 'baseline':
-        run_propainter(data_dir, mask_dir, method_out_dir)
+        run_propainter(data_dir, mask_dir, output_dir)
         
     elif method == 'sd2d':
         injected_data_dir = os.path.join(output_dir, "sd_injected_frames")
@@ -156,12 +155,11 @@ def run_pipeline(data_dir, mask_dir, output_dir, dataset_name, prompt, n_keyfram
                 shutil.copy(img_path, img_out_path)
                 shutil.copy(mask_path, mask_out_path)
         
-        run_propainter(injected_data_dir, injected_mask_dir, method_out_dir)
+        run_propainter(injected_data_dir, injected_mask_dir, output_dir)
         
     elif method == 'diffueraser':
-        run_diffueraser_inference(data_dir, mask_dir, method_out_dir)
-
-    return method_out_dir, total_frames
+        run_diffueraser_inference(data_dir, mask_dir, output_dir)
+    return output_dir, total_frames
 
 def main():
     args = parse_args()
