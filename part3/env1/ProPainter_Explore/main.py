@@ -125,13 +125,14 @@ def run_pipeline(data_dir, mask_dir, output_dir, dataset_name, prompt, n_keyfram
     img_files = sorted(glob.glob(os.path.join(data_dir, "*.[pj][np][g]")))
     mask_files = sorted(glob.glob(os.path.join(mask_dir, "*.png")))
     total_frames = len(img_files)
-    
-    os.makedirs(output_dir, exist_ok=True)
+
+    method_out_dir = os.path.join(output_dir, method) 
+    os.makedirs(method_out_dir, exist_ok=True)
 
     print(f"      -> Executing Method: [{method.upper()}]...")
     
     if method == 'baseline':
-        run_propainter(data_dir, mask_dir, output_dir)
+        run_propainter(data_dir, mask_dir, method_out_dir)
         
     elif method == 'sd2d':
         injected_data_dir = os.path.join(output_dir, "sd_injected_frames")
@@ -155,11 +156,12 @@ def run_pipeline(data_dir, mask_dir, output_dir, dataset_name, prompt, n_keyfram
                 shutil.copy(img_path, img_out_path)
                 shutil.copy(mask_path, mask_out_path)
         
-        run_propainter(injected_data_dir, injected_mask_dir, output_dir)
+        run_propainter(injected_data_dir, injected_mask_dir, method_out_dir)
         
     elif method == 'diffueraser':
-        run_diffueraser_inference(data_dir, mask_dir, output_dir)
-    return output_dir, total_frames
+        run_diffueraser_inference(data_dir, mask_dir, method_out_dir)
+
+    return method_out_dir, total_frames
 
 def main():
     args = parse_args()

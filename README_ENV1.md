@@ -251,9 +251,11 @@ python utils/make_video.py --input_folder data/DAVIS/JPEGImages/480p --fps 24
 ```bash
 python part2/env1/Track-Anything/launch_ui.py
 ```
-1. Move generated masks to `results/part2_davis_eval/dog/masks/`.
+(Usually in `http://127.0.0.1:12212/`)
 
-2. Execute decoupled evaluation:
+2. Move generated masks to `results/part2_davis_eval/dog/masks/`.
+
+3. Execute decoupled evaluation:
 ```bash
 python part2/env1/Track-Anything/run_davis_subset.py \
     --davis_root data/DAVIS \
@@ -388,10 +390,13 @@ python part3/env1/ProPainter_Explore/run_davis.py \
     --target_seqs camel drift-chicane \
     --method diffueraser
 
-    # Run on the whole DAVIS dataset
+# Run on the whole DAVIS dataset
 python part3/env1/ProPainter_Explore/run_davis.py \
     --davis_root data/DAVIS \
     --method diffueraser
+
+# QUANTITATIVE EVALUATION
+python part3/env1/ProPainter_Explore/run_davis_quant.py --method diffueraser
 ```
 
 *(Warning: Running DiffuEraser on the entire 50-video dataset without the --target_seqs flag is extremely VRAM and time-intensive).*
