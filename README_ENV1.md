@@ -140,17 +140,19 @@ The Track-Anything UI requires a single video file (.mp4) for input. Use the pro
 
 ```bash
 # For tennis dataset
-python utils/make_video.py --input_dir data/tennis --output_file data/tennis.mp4
+python utils/make_video.py --input_folder data/tennis --fps 24
 
 # For bmx-trees dataset
-python utils/make_video.py --input_dir data/bmx-trees --output_file data/bmx-trees.mp4
+python utils/make_video.py --input_folder data/bmx-trees --fps 24
 ```
 
 #### Step 1: Interactive Mask Generation
 
 Launch the UI using our safe launcher from the root directory:
 ```bash
-python part2/env1/Track-Anything/launch_ui.py
+python part2/env1/Track-Anything/launch_ui.py \
+    --track_anything_dir third_party/Track-Anything \
+    --device cuda:0
 ```
 1. Open your browser to the local URL provided in the terminal (usually `http://127.0.0.1:12212`).
 2. Upload your target video frames (e.g., `data/tennis`.

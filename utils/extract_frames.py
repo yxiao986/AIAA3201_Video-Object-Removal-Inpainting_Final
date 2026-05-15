@@ -2,6 +2,7 @@ import cv2
 import os
 import argparse
 
+
 def extract_frames(video_path, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     cap = cv2.VideoCapture(video_path)
@@ -19,7 +20,14 @@ def extract_frames(video_path, output_dir):
     cap.release()
     print(f"Successfully extracted {frame_idx} frames and saved to: {output_dir}")
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Extract ordered frames from a video file.")
+    parser.add_argument("--video_path", "-i", required=True, help="Input video path.")
+    parser.add_argument("--output_dir", "-o", required=True, help="Directory for extracted frames.")
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    video_file = "data/my_video.mp4" 
-    output_folder = "data/my_video"  
-    extract_frames(video_file, output_folder)
+    args = parse_args()
+    extract_frames(args.video_path, args.output_dir)

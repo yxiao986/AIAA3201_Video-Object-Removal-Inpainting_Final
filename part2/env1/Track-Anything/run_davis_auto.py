@@ -30,6 +30,9 @@ def parse_args():
     parser.add_argument("--output_dir", type=str, default=os.path.join(project_root_dir, "results", "part2_davis_auto_eval"), 
                         help="Directory to save automated metrics and masks")
     parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--xmem_checkpoint", type=str,
+                        default=os.path.join(track_anything_dir, "checkpoints", "XMem-s012.pth"),
+                        help="Path to the XMem checkpoint used by Track-Anything.")
     return parser.parse_args()
 
 def load_frames(folder_path, is_mask=False):
@@ -60,7 +63,7 @@ def main():
     print(f" Sequences to process: {len(sequences)}")
     print(f"{'='*70}\n")
     
-    xmem_checkpoint = os.path.join(track_anything_dir, "checkpoints", "XMem-s012.pth")
+    xmem_checkpoint = os.path.abspath(args.xmem_checkpoint)
     if not os.path.exists(xmem_checkpoint):
         print(f"[Error] XMem checkpoint not found at {xmem_checkpoint}")
         return

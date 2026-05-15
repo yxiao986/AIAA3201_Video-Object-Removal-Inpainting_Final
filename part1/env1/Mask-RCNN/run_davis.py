@@ -5,6 +5,7 @@ import cv2
 import json
 import argparse
 import numpy as np
+import torch
 from tqdm import tqdm
 
 # Add parent directory to path to import utils
@@ -17,6 +18,11 @@ from utils.metrics import evaluate_mask_quality
 from mask_extractor import MaskExtractor
 from inpainter import Inpainter
 
+
+def parse_classes(value):
+    return [int(item.strip()) for item in value.split(",") if item.strip()]
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate Part 1 Baseline on the full DAVIS dataset")
     parser.add_argument("--davis_root", type=str, default="../data/DAVIS", 
@@ -25,6 +31,16 @@ def parse_args():
                         help="Directory to save metrics and masks")
     parser.add_argument("--run_inpainting", action="store_true", 
                         help="Flag to also run the inpainting process (Warning: Very time-consuming for the whole dataset)")
+    parser.add_argument("--device", type=str, default='cuda' if torch.cuda.is_available() else 'cpu',
+                        help="Device used by Mask R-CNN, e.g. cuda or cpu")
+    parser.add_argument("--dynamic_classes", type=parse_classes, default=[1, 2, 3, 4, 6, 8],
+                        help="Comma-separated COCO class ids treated as removable dynamic objects")
+    parser.add_argument("--score_threshold", type=float, default=0.5,
+                        help="Mask R-CNN detection confidence threshold")
+    parser.add_argument("--motion_threshold", type=float, default=1.0,
+                        help="Lucas-Kanade mean displacement threshold")
+    parser.add_argument("--temporal_window", type=int, default=15,
+                        help="Number of neighboring frames used for temporal background propagation")
     return parser.parse_args()
 
 def load_frames(folder_path, is_mask=False):
@@ -56,8 +72,13 @@ def main():
     sequences = sorted([d for d in os.listdir(jpeg_dir) if os.path.isdir(os.path.join(jpeg_dir, d))])
     print(f"Found {len(sequences)} video sequences in the DAVIS dataset.")
     
-    extractor = MaskExtractor()
-    inpainter = Inpainter(temporal_window=15) if args.run_inpainting else None
+    extractor = MaskExtractor(
+        device=args.device,
+        dynamic_classes=args.dynamic_classes,
+        score_threshold=args.score_threshold,
+        motion_threshold=args.motion_threshold,
+    )
+    inpainter = Inpainter(temporal_window=args.temporal_window) if args.run_inpainting else None
     
     all_metrics = {}
     global_jm = []

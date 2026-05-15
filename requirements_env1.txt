@@ -4,6 +4,8 @@ torchvision==0.15.2
 numpy==1.23.5
 opencv-python==4.8.0.76
 scikit-image==0.21.0
+tqdm>=4.66.0
+pillow>=10.0.0
 
 imageio==2.34.2
 decord==0.6.0

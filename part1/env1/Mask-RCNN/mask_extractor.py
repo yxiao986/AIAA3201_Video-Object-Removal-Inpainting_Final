@@ -6,7 +6,13 @@ from torchvision.transforms import functional as F
 from torchvision.models.detection import MaskRCNN_ResNet50_FPN_Weights
 
 class MaskExtractor:
-    def __init__(self, device='cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(
+        self,
+        device='cuda' if torch.cuda.is_available() else 'cpu',
+        dynamic_classes=None,
+        score_threshold=0.5,
+        motion_threshold=1.0,
+    ):
         self.device = device
         # Load a pre-trained Mask R-CNN model (ResNet50 backbone)
         self.model = torchvision.models.detection.maskrcnn_resnet50_fpn(weights=MaskRCNN_ResNet50_FPN_Weights.DEFAULT)
@@ -14,9 +20,9 @@ class MaskExtractor:
         self.model.eval()
         
         # COCO class IDs for dynamic objects (1: person, 2: bicycle, 3: car, etc.)
-        self.dynamic_classes = [1, 2, 3, 4, 6, 8] 
-        self.score_threshold = 0.5
-        self.motion_threshold = 1.0 # Pixel displacement threshold for optical flow
+        self.dynamic_classes = dynamic_classes or [1, 2, 3, 4, 6, 8]
+        self.score_threshold = score_threshold
+        self.motion_threshold = motion_threshold  # Pixel displacement threshold for optical flow
 
     def get_masks(self, frame):
         """

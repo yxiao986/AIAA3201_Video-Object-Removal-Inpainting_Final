@@ -11,7 +11,7 @@ project_root_dir = os.path.abspath(os.path.join(current_script_dir, "..", "..", 
 if project_root_dir not in sys.path:
     sys.path.insert(0, project_root_dir)
 
-from part3.env1.ProPainter_Explore.main import run_pipeline, extract_frames_from_propainter_output
+from part3.env1.ProPainter_Explore import main as propainter_explore
 from utils.mask_utils import generate_random_stationary_mask, save_stationary_mask_sequence
 from utils.metrics import evaluate_video_quality
 
@@ -26,10 +26,19 @@ def parse_args():
                         help="Which method to run")
     parser.add_argument("--target_seqs", type=str, nargs="+", default=[],
                         help="Specific sequences to evaluate. If empty, runs ALL available sequences.")
+    parser.add_argument("--propainter_dir", type=str,
+                        default=os.path.join(project_root_dir, "third_party", "ProPainter"),
+                        help="Path to the local ProPainter repository.")
+    parser.add_argument("--diffueraser_dir", type=str,
+                        default=os.path.join(project_root_dir, "third_party", "DiffuEraser"),
+                        help="Path to the local DiffuEraser repository.")
+    parser.add_argument("--python_exec", type=str, default=sys.executable,
+                        help="Python executable used for external inference scripts.")
     return parser.parse_args()
 
 def main():
     args = parse_args()
+    propainter_explore.configure_external_tools(args)
     jpeg_dir = os.path.join(args.davis_root, "JPEGImages", "480p")
     
     if not os.path.exists(jpeg_dir):
@@ -65,7 +74,7 @@ def main():
         stat_mask = generate_random_stationary_mask(sample_frame.shape[0], sample_frame.shape[1], 8, 45)
         save_stationary_mask_sequence(stat_mask, stationary_mask_dir, len(clean_img_files), [os.path.basename(f) for f in clean_img_files])
 
-        out_dir, total_frames = run_pipeline(
+        out_dir, total_frames = propainter_explore.run_pipeline(
             data_dir=clean_data_dir, 
             mask_dir=stationary_mask_dir, 
             output_dir=quant_out_dir, 
@@ -77,7 +86,7 @@ def main():
         )
 
         gt_frames = [cv2.imread(f) for f in clean_img_files]
-        pred_frames = extract_frames_from_propainter_output(out_dir, total_frames)
+        pred_frames = propainter_explore.extract_frames_from_propainter_output(out_dir, total_frames)
 
         if len(gt_frames) == len(pred_frames) > 0:
             gt_h, gt_w = gt_frames[0].shape[:2]

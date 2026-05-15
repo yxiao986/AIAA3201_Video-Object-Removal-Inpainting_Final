@@ -1,0 +1,15 @@
+torch==2.7.1
+torchvision==0.22.1
+numpy
+opencv-python
+scipy
+scikit-image
+scikit-learn
+einops
+tqdm
+matplotlib
+pillow
+safetensors
+huggingface_hub
+transformers
+accelerate

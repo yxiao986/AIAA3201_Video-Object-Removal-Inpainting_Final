@@ -22,6 +22,11 @@ def parse_args():
                         help="Directory to save results")
     parser.add_argument("--target_seqs", type=str, nargs="+", required=True,
                         help="Specific sequences to evaluate (e.g., skate-jump camel). Must be generated via UI first.")
+    parser.add_argument("--propainter_dir", type=str,
+                        default=os.path.join(project_root_dir, "third_party", "ProPainter"),
+                        help="Path to the local ProPainter repository.")
+    parser.add_argument("--python_exec", type=str, default=sys.executable,
+                        help="Python executable used for ProPainter.")
     return parser.parse_args()
 
 def main():
@@ -29,7 +34,7 @@ def main():
     
     jpeg_dir = os.path.join(args.davis_root, "JPEGImages", "480p")
     anno_dir = os.path.join(args.davis_root, "Annotations", "480p")
-    propainter_dir = os.path.join(project_root_dir, "third_party", "ProPainter")
+    propainter_dir = os.path.abspath(args.propainter_dir)
     
     if not os.path.exists(jpeg_dir):
         print(f"[Error] DAVIS directory not found at {jpeg_dir}")
@@ -91,7 +96,7 @@ def main():
         print(f"-> Running ProPainter for {seq}...")
         try:
             subprocess.run([
-                sys.executable, "inference_propainter.py",
+                args.python_exec, "inference_propainter.py",
                 "--video", os.path.abspath(seq_jpeg),
                 "--mask", os.path.abspath(mask_out_dir),
                 "--output", os.path.abspath(inpaint_out_dir)

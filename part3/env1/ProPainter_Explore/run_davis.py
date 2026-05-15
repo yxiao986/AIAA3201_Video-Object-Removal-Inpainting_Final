@@ -9,7 +9,7 @@ current_script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root_dir = os.path.abspath(os.path.join(current_script_dir, "..", "..", ".."))
 sys.path.append(project_root_dir)
 
-from part3.env1.ProPainter_Explore.main import run_propainter, run_diffueraser_inference
+from part3.env1.ProPainter_Explore import main as propainter_explore
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Part 3: Upper-Bound Generative Inpainting on DAVIS (GT Injection)")
@@ -21,10 +21,19 @@ def parse_args():
                         help="Which method to run (baseline or diffueraser)")
     parser.add_argument("--target_seqs", type=str, nargs="+", default=[],
                         help="Specific sequences to evaluate. If empty, runs ALL available sequences.")
+    parser.add_argument("--propainter_dir", type=str,
+                        default=os.path.join(project_root_dir, "third_party", "ProPainter"),
+                        help="Path to the local ProPainter repository.")
+    parser.add_argument("--diffueraser_dir", type=str,
+                        default=os.path.join(project_root_dir, "third_party", "DiffuEraser"),
+                        help="Path to the local DiffuEraser repository.")
+    parser.add_argument("--python_exec", type=str, default=sys.executable,
+                        help="Python executable used for external inference scripts.")
     return parser.parse_args()
 
 def main():
     args = parse_args()
+    propainter_explore.configure_external_tools(args)
     jpeg_dir = os.path.join(args.davis_root, "JPEGImages", "480p")
     anno_dir = os.path.join(args.davis_root, "Annotations", "480p")
     
@@ -66,9 +75,9 @@ def main():
 
         print(f"   -> Executing {args.method.upper()}...")
         if args.method == 'baseline':
-            run_propainter(seq_jpeg, dilated_mask_dir, method_out_dir)
+            propainter_explore.run_propainter(seq_jpeg, dilated_mask_dir, method_out_dir)
         elif args.method == 'diffueraser':
-            run_diffueraser_inference(seq_jpeg, dilated_mask_dir, method_out_dir)
+            propainter_explore.run_diffueraser_inference(seq_jpeg, dilated_mask_dir, method_out_dir)
         elif args.method == 'sd2d':
             print("   [Warning] SD2D batch processing skipped in this script. Use main.py.")
 

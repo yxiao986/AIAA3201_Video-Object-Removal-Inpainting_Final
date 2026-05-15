@@ -20,14 +20,22 @@ def parse_args():
     parser.add_argument("--data_dir", type=str, required=True)
     parser.add_argument("--gt_mask_dir", type=str, default=None)
     parser.add_argument("--output_base_dir", type=str, default=os.path.join(project_root_dir, "results", "part2_sota"))
+    parser.add_argument("--track_anything_dir", type=str,
+                        default=os.path.join(project_root_dir, "third_party", "Track-Anything"),
+                        help="Path to the local Track-Anything repository.")
+    parser.add_argument("--propainter_dir", type=str,
+                        default=os.path.join(project_root_dir, "third_party", "ProPainter"),
+                        help="Path to the local ProPainter repository.")
+    parser.add_argument("--python_exec", type=str, default=sys.executable,
+                        help="Python executable used for ProPainter.")
     return parser.parse_args()
 
 def main():
     args = parse_args()
     
     # Absolute paths for third-party tools
-    track_anything_dir = os.path.join(project_root_dir, "third_party", "Track-Anything")
-    propainter_dir = os.path.join(project_root_dir, "third_party", "ProPainter")
+    track_anything_dir = os.path.abspath(args.track_anything_dir)
+    propainter_dir = os.path.abspath(args.propainter_dir)
     
     # Check dependencies
     if not os.path.isdir(propainter_dir) or not os.path.isdir(track_anything_dir):
@@ -120,7 +128,7 @@ def main():
     
     try:
         subprocess.run([
-            sys.executable, propainter_script,
+            args.python_exec, propainter_script,
             "--video", data_dir_abs,
             "--mask", mask_out_dir,
             "--output", inpaint_out_dir

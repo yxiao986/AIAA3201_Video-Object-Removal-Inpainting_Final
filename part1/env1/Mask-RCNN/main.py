@@ -6,6 +6,7 @@ import json
 import argparse
 from tqdm import tqdm
 import numpy as np
+import torch
 
 # Add parent directory to path to import utils
 current_script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,6 +18,11 @@ from utils.metrics import evaluate_mask_quality
 from mask_extractor import MaskExtractor
 from inpainter import Inpainter
 
+
+def parse_classes(value):
+    return [int(item.strip()) for item in value.split(",") if item.strip()]
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run Part 1 Baseline Pipeline")
     parser.add_argument("--dataset_name", type=str, required=True, 
@@ -27,6 +33,16 @@ def parse_args():
                         help="Path to the ground truth masks (optional, for evaluation)")
     parser.add_argument("--output_base_dir", type=str, default="../results/part1_baseline", 
                         help="Base directory to save results")
+    parser.add_argument("--device", type=str, default='cuda' if torch.cuda.is_available() else 'cpu',
+                        help="Device used by Mask R-CNN, e.g. cuda or cpu")
+    parser.add_argument("--dynamic_classes", type=parse_classes, default=[1, 2, 3, 4, 6, 8],
+                        help="Comma-separated COCO class ids treated as removable dynamic objects")
+    parser.add_argument("--score_threshold", type=float, default=0.5,
+                        help="Mask R-CNN detection confidence threshold")
+    parser.add_argument("--motion_threshold", type=float, default=1.0,
+                        help="Lucas-Kanade mean displacement threshold")
+    parser.add_argument("--temporal_window", type=int, default=15,
+                        help="Number of neighboring frames used for temporal background propagation")
     return parser.parse_args()
 
 def load_frames(folder_path, is_mask=False):
@@ -61,7 +77,12 @@ def main():
         return
 
     # --- Step 1: Mask Extraction ---
-    extractor = MaskExtractor()
+    extractor = MaskExtractor(
+        device=args.device,
+        dynamic_classes=args.dynamic_classes,
+        score_threshold=args.score_threshold,
+        motion_threshold=args.motion_threshold,
+    )
     pred_masks = []
     
     print(f"[{args.dataset_name}] Extracting masks...")
@@ -99,7 +120,7 @@ def main():
 
     # --- Step 3: Inpainting ---
     print(f"[{args.dataset_name}] Starting Temporal + Spatial Inpainting...")
-    inpainter = Inpainter(temporal_window=15)
+    inpainter = Inpainter(temporal_window=args.temporal_window)
     inpainted_frames = inpainter.inpaint(frames, pred_masks)
     
     print(f"[{args.dataset_name}] Saving inpainted results...")

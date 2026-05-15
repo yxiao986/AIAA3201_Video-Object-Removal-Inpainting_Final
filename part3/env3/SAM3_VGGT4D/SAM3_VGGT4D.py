@@ -1,4 +1,4 @@
-# 处理bmx-trees和tennis
+# Process the BMX-Trees and Tennis scenes.
 import os
 import sys
 import math
@@ -13,7 +13,7 @@ from pathlib import Path
 import re
 
 # ==========================================
-# 1. 路径配置
+# 1. Path configuration
 # ==========================================
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 VGGT_CKPT = str(PROJECT_ROOT / "external/VGGT4D/ckpts/model_tracker_fixed_e20.pt")
@@ -33,8 +33,8 @@ VGGT4D_DIR = str(PROJECT_ROOT / "external/VGGT4D")
 PROPAINTER_DIR = str(PROJECT_ROOT / "external/ProPainter")
 
 SAM3_DIR = str(PROJECT_ROOT / "external/sam3")
-SAM3_CHECKPOINT = str(PROJECT_ROOT / "external/sam3/ckpts/sam3.pt")
-SAM3_BPE_PATH = str(PROJECT_ROOT / "external/sam3/ckpts/bpe_simple_vocab_16e6.txt.gz")
+SAM3_CHECKPOINT = str(PROJECT_ROOT / "external/sam3_ms/sam3.pt")
+SAM3_BPE_PATH = str(PROJECT_ROOT / "external/sam3_ms/bpe_simple_vocab_16e6.txt.gz")
 SAM3_DEVICE = "cuda"
 
 PYTHON_EXEC = "python"
@@ -46,7 +46,7 @@ SAM3_KEEP_LARGEST_COMPONENT = True
 SAM3_MIN_IOU_WITH_ROUGH_MASK = 0.05
 
 # ==========================================
-# 2. 评价指标计算函数
+# 2. Metric helpers
 # ==========================================
 def calculate_iou(pred_mask, gt_mask):
     pred_bool = pred_mask > 0
@@ -64,7 +64,7 @@ def binarize_mask(mask):
 
     mask = np.asarray(mask)
 
-    # 兼容 0/1, 0/255, 灰度概率图
+    # Support 0/1 masks, 0/255 masks, and grayscale probability maps.
     if mask.max() <= 1:
         return ((mask > 0).astype(np.uint8) * 255)
     else:
@@ -73,9 +73,10 @@ def binarize_mask(mask):
 
 def choose_best_polarity(pred_paths, gt_paths, sample_k=10):
     """
-    只用于 tennis：
-    在前 sample_k 帧里测试 4 种组合，选平均 IoU 最大的极性组合。
-    返回: pred_invert, gt_invert
+    Used for Tennis only.
+    Probe four polarity combinations on the first sample_k frames and keep the
+    one with the highest mean IoU.
+    Returns: pred_invert, gt_invert.
     """
     pair_num = min(len(pred_paths), len(gt_paths), sample_k)
     if pair_num == 0:
@@ -115,7 +116,7 @@ def choose_best_polarity(pred_paths, gt_paths, sample_k=10):
             best_score = score
             best_mode = (pred_inv, gt_inv)
 
-    print(f"[tennis] 自动选择极性: pred_invert={best_mode[0]}, gt_invert={best_mode[1]}, probe_mean_iou={best_score:.4f}")
+    print(f"[tennis] Auto-selected polarity: pred_invert={best_mode[0]}, gt_invert={best_mode[1]}, probe_mean_iou={best_score:.4f}")
     return best_mode
 
 def natural_key(x):
@@ -132,19 +133,19 @@ def evaluate_mask_quality(pred_masks_dir, gt_mask_dir, threshold=0.5, scene_name
     gt_mask_paths = sorted(glob.glob(os.path.join(gt_mask_dir, "*.png")))
 
     if not pred_mask_paths or not gt_mask_paths:
-        print(f"[evaluate_mask_quality] 空目录: pred={pred_masks_dir}, gt={gt_mask_dir}")
+        print(f"[evaluate_mask_quality] Empty directory: pred={pred_masks_dir}, gt={gt_mask_dir}")
         return None, None
 
     pair_num = min(len(pred_mask_paths), len(gt_mask_paths))
     if len(pred_mask_paths) != len(gt_mask_paths):
         print(
-            f"[evaluate_mask_quality] 帧数不一致，将按前 {pair_num} 帧计算: "
+            f"[evaluate_mask_quality] Frame counts differ; evaluating the first {pair_num} pairs: "
             f"pred={len(pred_mask_paths)}, gt={len(gt_mask_paths)}"
         )
 
     pred_invert, gt_invert = False, False
 
-    # 只对 tennis 自动判断极性，别动 bmx 的原逻辑
+    # Only Tennis needs automatic polarity probing; keep the BMX flow unchanged.
     if scene_name == "tennis":
         pred_invert, gt_invert = choose_best_polarity(
             pred_mask_paths[:pair_num],
@@ -182,7 +183,7 @@ def evaluate_mask_quality(pred_masks_dir, gt_mask_dir, threshold=0.5, scene_name
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Run VGGT4D coarse masks, optional SAM3 refinement, and ProPainter.")
 
     parser.add_argument("--input_dir", type=Path, default=INPUT_PARENT_DIR)
     parser.add_argument("--output_dir", type=Path, default=OUTPUT_BASE_DIR)
@@ -192,7 +193,7 @@ def parse_args():
         type=str,
         default="both",
         choices=["bmx-trees", "tennis", "both"],
-        help="选择运行哪个场景: bmx-trees / tennis / both"
+        help="Scene to run: bmx-trees, tennis, or both."
     )
 
     parser.add_argument("--vggt_ckpt", type=str, default=str(PROJECT_ROOT / "external/VGGT4D/ckpts/model_tracker_fixed_e20.pt"))
@@ -202,6 +203,14 @@ def parse_args():
 
     parser.add_argument("--gt_bmx", type=str, default=MASK_GT_DIRS["bmx-trees"])
     parser.add_argument("--gt_tennis", type=str, default=MASK_GT_DIRS["tennis"])
+    parser.add_argument("--vggt4d_dir", type=str, default=VGGT4D_DIR,
+                        help="Path to the local VGGT4D repository.")
+    parser.add_argument("--propainter_dir", type=str, default=PROPAINTER_DIR,
+                        help="Path to the local ProPainter repository.")
+    parser.add_argument("--python_exec", type=str, default=PYTHON_EXEC,
+                        help="Python executable used for external scripts.")
+    parser.add_argument("--sam3_device", type=str, default=SAM3_DEVICE,
+                        help="Device used by SAM3, e.g. cuda or cpu.")
 
     parser.add_argument("--disable_sam3", action="store_true")
     parser.add_argument("--chunk_size", type=int, default=CHUNK_SIZE)
@@ -214,6 +223,7 @@ def configure_from_args(args):
     global SAM3_CHECKPOINT, SAM3_BPE_PATH
     global ENABLE_SAM3_REFINE, CHUNK_SIZE
     global VGGT_CKPT
+    global VGGT4D_DIR, PROPAINTER_DIR, PYTHON_EXEC, SAM3_DEVICE
     VGGT_CKPT = args.vggt_ckpt
     
     INPUT_PARENT_DIR = Path(args.input_dir)
@@ -229,6 +239,10 @@ def configure_from_args(args):
 
     SAM3_CHECKPOINT = args.sam3_ckpt
     SAM3_BPE_PATH = args.sam3_bpe
+    VGGT4D_DIR = args.vggt4d_dir
+    PROPAINTER_DIR = args.propainter_dir
+    PYTHON_EXEC = args.python_exec
+    SAM3_DEVICE = args.sam3_device
 
     ENABLE_SAM3_REFINE = not args.disable_sam3
     CHUNK_SIZE = args.chunk_size
@@ -239,11 +253,11 @@ def append_result_line(result_txt_path, line):
         f.write(line + "\n")
         
 # ==========================================
-# 3. 分块工具函数
+# 3. Chunking helpers
 # ==========================================
 def prepare_chunked_dataset(orig_dir, chunked_parent_dir, scene_name, chunk_size=20):
     """
-    将长视频切分为多个 chunk，防止 VGGT4D 长时序 attention 占用过高。
+    Split a long video sequence into chunks to control VGGT4D memory usage.
     """
     img_paths = natural_sorted_glob(os.path.join(orig_dir, "*.[jp][pn]g"))
     if not img_paths:
@@ -257,12 +271,12 @@ def prepare_chunked_dataset(orig_dir, chunked_parent_dir, scene_name, chunk_size
         chunk_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy(p, str(chunk_dir / os.path.basename(p)))
 
-    print(f"  -> {scene_name} 切分为 {num_chunks} 个块 (每块 {chunk_size} 帧，原分辨率)")
+    print(f"  -> {scene_name} split into {num_chunks} chunks ({chunk_size} frames per chunk, original resolution)")
 
 
 def merge_masks(orig_dir, mask_parent_dir, scene_name):
     """
-    把各个 chunk 的 mask 按原顺序拼回完整场景。
+    Merge chunk-level masks back into a full scene in the original frame order.
     """
     final_scene_mask_dir = mask_parent_dir / scene_name
     if final_scene_mask_dir.exists():
@@ -277,7 +291,7 @@ def merge_masks(orig_dir, mask_parent_dir, scene_name):
         chunk_masks = sorted((c_dir / "masks").glob("*.png"), key=lambda p: natural_key(p.name))
         all_mask_files.extend(chunk_masks)
 
-    print(f"  -> 场景 {scene_name}: 原图共 {len(orig_images)} 帧, 待拼合 mask {len(all_mask_files)} 张")
+    print(f"  -> Scene {scene_name}: {len(orig_images)} source frames, {len(all_mask_files)} masks to merge")
 
     for i, mask_file in enumerate(all_mask_files):
         if i >= len(orig_images):
@@ -297,14 +311,14 @@ def merge_masks(orig_dir, mask_parent_dir, scene_name):
 
 
 # ==========================================
-# 4. SAM 3 精修工具函数
-#    思路：VGGT4D 先给 rough mask，再把 rough mask 转成 box prompt，
-#         用 SAM 3 做单帧边界精修，最后再回到时序流程里。
+# 4. SAM3 refinement helpers.
+#    VGGT4D produces rough masks; the rough masks are converted to box prompts,
+#    refined frame-by-frame by SAM3, and then returned to the temporal pipeline.
 # ==========================================
 def mask_to_xywh_norm(mask):
     """
-    把粗 mask 转成 SAM 3 需要的归一化 xywh box:
-    [center_x, center_y, width, height], 均在 [0, 1] 范围
+    Convert a rough mask to the normalized SAM3 xywh box format:
+    [center_x, center_y, width, height], all in [0, 1].
     """
     ys, xs = np.where(mask > 0)
     if len(xs) == 0 or len(ys) == 0:
@@ -335,7 +349,7 @@ def keep_largest_component(binary_mask):
 
 def postprocess_mask(mask, target_shape):
     """
-    统一成 uint8 二值图，并做轻量去噪。
+    Convert a model output to a uint8 binary mask and apply light denoising.
     """
     if hasattr(mask, "detach"):
         mask = mask.detach().cpu().numpy()
@@ -346,7 +360,7 @@ def postprocess_mask(mask, target_shape):
     if mask.ndim != 2:
         raise ValueError(f"Unexpected mask shape: {mask.shape}")
 
-    # 有些输出是 bool / float，有些是 logit / prob，这里统一转二值
+    # Outputs may be bools, probabilities, or logits; normalize them to binary masks.
     if mask.dtype == np.bool_:
         mask = mask.astype(np.uint8) * 255
     else:
@@ -370,8 +384,8 @@ def postprocess_mask(mask, target_shape):
 
 def build_sam3_processor():
     """
-    使用已安装的 sam3 Python 包 + 本地 checkpoint/bpe 初始化。
-    不再依赖本地源码仓库目录结构。
+    Initialize SAM3 from the installed Python package and local checkpoint/BPE.
+    This does not depend on the local source tree layout.
     """
     import torch
     from PIL import Image  # noqa: F401
@@ -381,8 +395,8 @@ def build_sam3_processor():
         from sam3.model.sam3_image_processor import Sam3Processor
     except Exception as e:
         raise RuntimeError(
-            "SAM 3 Python 包未正确安装。请先执行: pip install -U sam3\n"
-            f"原始错误: {e}"
+            "The SAM3 Python package is not installed correctly. Run: pip install -U sam3\n"
+            f"Original error: {e}"
         ) from e
 
     device = SAM3_DEVICE if torch.cuda.is_available() else "cpu"
@@ -391,12 +405,12 @@ def build_sam3_processor():
     if os.path.exists(SAM3_CHECKPOINT):
         build_kwargs["checkpoint_path"] = SAM3_CHECKPOINT
     else:
-        raise FileNotFoundError(f"SAM3_CHECKPOINT 不存在: {SAM3_CHECKPOINT}")
+        raise FileNotFoundError(f"SAM3_CHECKPOINT does not exist: {SAM3_CHECKPOINT}")
 
     if os.path.exists(SAM3_BPE_PATH):
         build_kwargs["bpe_path"] = SAM3_BPE_PATH
     else:
-        raise FileNotFoundError(f"SAM3_BPE_PATH 不存在: {SAM3_BPE_PATH}")
+        raise FileNotFoundError(f"SAM3_BPE_PATH does not exist: {SAM3_BPE_PATH}")
 
     model = build_sam3_image_model(**build_kwargs)
     processor = Sam3Processor(model)
@@ -404,8 +418,8 @@ def build_sam3_processor():
 
 def refine_one_mask_with_sam3(processor, image_bgr, rough_mask):
     """
-    用 rough mask 生成 box prompt，交给 SAM 3 做精修。
-    然后在候选结果里选一个与 rough mask IoU 最高的结果。
+    Build a box prompt from the rough mask, refine it with SAM3, and choose the
+    candidate with the highest IoU against the rough mask.
     """
     from PIL import Image
 
@@ -428,7 +442,7 @@ def refine_one_mask_with_sam3(processor, image_bgr, rough_mask):
 
     candidate_masks = np.asarray(candidate_masks)
 
-    # 常见情况: [N, H, W] 或 [1, N, H, W]
+    # Common layouts: [N, H, W] or [1, N, H, W].
     if candidate_masks.ndim == 4:
         candidate_masks = candidate_masks[0]
 
@@ -457,15 +471,15 @@ def refine_one_mask_with_sam3(processor, image_bgr, rough_mask):
 
 def refine_chunk_masks_with_sam3(chunked_parent_dir, raw_mask_parent_dir, refined_mask_parent_dir, scene_name):
     """
-    对某个 scene 的所有 chunk mask 做 SAM 3 精修。
-    输入:
-      - chunked_parent_dir: 原 chunk 图像目录
-      - raw_mask_parent_dir: VGGT4D 原始输出目录
-      - refined_mask_parent_dir: SAM 3 精修后输出目录
+    Refine all chunk masks for one scene with SAM3.
+    Inputs:
+      - chunked_parent_dir: source chunk image directory.
+      - raw_mask_parent_dir: VGGT4D raw output directory.
+      - refined_mask_parent_dir: SAM3-refined output directory.
     """
     import torch
 
-    print(f"\n[SAM 3] 正在精修场景: {scene_name}")
+    print(f"\n[SAM3] Refining scene: {scene_name}")
     processor, device = build_sam3_processor()
 
     chunk_input_dirs = sorted(chunked_parent_dir.glob(f"{scene_name}_chunk_*"))
@@ -480,14 +494,14 @@ def refine_chunk_masks_with_sam3(chunked_parent_dir, raw_mask_parent_dir, refine
         rough_mask_paths = sorted(raw_mask_dir.glob("*.png"))
 
         if not frame_paths or not rough_mask_paths:
-            print(f"  -> 跳过 {chunk_input_dir.name}: 缺少图像或粗 mask")
+            print(f"  -> Skipping {chunk_input_dir.name}: missing frames or rough masks")
             continue
 
         pair_num = min(len(frame_paths), len(rough_mask_paths))
         if len(frame_paths) != len(rough_mask_paths):
             print(
-                f"  -> 警告 {chunk_input_dir.name}: frame={len(frame_paths)} / mask={len(rough_mask_paths)}，"
-                f"将按前 {pair_num} 对处理"
+                f"  -> Warning {chunk_input_dir.name}: frame={len(frame_paths)} / mask={len(rough_mask_paths)}; "
+                f"processing the first {pair_num} pairs"
             )
 
         for frame_path, rough_mask_path in zip(frame_paths[:pair_num], rough_mask_paths[:pair_num]):
@@ -506,14 +520,14 @@ def refine_chunk_masks_with_sam3(chunked_parent_dir, raw_mask_parent_dir, refine
         if device == "cuda":
             torch.cuda.empty_cache()
 
-    print(f"[SAM 3] 场景 {scene_name} 精修完成，共处理 {total_frames} 帧")
+    print(f"[SAM3] Finished scene {scene_name}; processed {total_frames} frames")
 
 
 # ==========================================
-# 5. 模型调用函数
+# 5. External model calls
 # ==========================================
 def run_vggt4d(parent_input_dir, parent_output_dir):
-    print(f"\n[VGGT4D] 正在处理分块数据集: {parent_input_dir}")
+    print(f"\n[VGGT4D] Processing chunked dataset: {parent_input_dir}")
     parent_output_dir.mkdir(parents=True, exist_ok=True)
 
     cmd = [
@@ -527,7 +541,7 @@ def run_vggt4d(parent_input_dir, parent_output_dir):
 
 
 def run_propainter(dataset_path, mask_dir, output_dir):
-    print(f"\n[ProPainter] 正在修复完整视频序列: {dataset_path.name}")
+    print(f"\n[ProPainter] Inpainting full sequence: {dataset_path.name}")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cmd = [
@@ -541,14 +555,14 @@ def run_propainter(dataset_path, mask_dir, output_dir):
 
 
 # ==========================================
-# 6. 主流程
+# 6. Main pipeline
 # ==========================================
 def main_pipeline(selected_scene):
     print(
         f"{'=' * 60}\n"
-        f"开始处理：2.2 数据集 + VGGT4D 粗分割 + SAM 3 精修 + ProPainter\n"
-        f"输入目录: {INPUT_PARENT_DIR}\n"
-        f"输出目录: {OUTPUT_BASE_DIR}\n"
+        f"Starting pipeline: scene data + VGGT4D coarse masks + SAM3 refinement + ProPainter\n"
+        f"Input directory: {INPUT_PARENT_DIR}\n"
+        f"Output directory: {OUTPUT_BASE_DIR}\n"
         f"{'=' * 60}"
     )
 
@@ -562,7 +576,7 @@ def main_pipeline(selected_scene):
     scene_dirs = [all_scene_dirs[name] for name in wanted_names if name in all_scene_dirs]
 
     if not scene_dirs:
-        print("未找到可处理的场景目录，程序结束。")
+        print("No processable scene directory found; exiting.")
         return
 
     chunked_parent_dir = OUTPUT_BASE_DIR / "chunked_input"
@@ -570,23 +584,23 @@ def main_pipeline(selected_scene):
     refined_mask_parent_dir = OUTPUT_BASE_DIR / "sam3_refined_masks_chunks"
     merged_mask_parent_dir = OUTPUT_BASE_DIR / "merged_masks"
 
-    # --- 阶段 1: 时间切片 ---
-    print("\n>>> 阶段 1: 准备分块数据集")
+    # --- Stage 1: temporal chunking ---
+    print("\n>>> Stage 1: preparing chunked dataset")
     for scene_dir in scene_dirs:
         prepare_chunked_dataset(scene_dir, chunked_parent_dir, scene_dir.name, chunk_size=CHUNK_SIZE)
 
-    # --- 阶段 2: VGGT4D 粗 mask ---
-    print("\n>>> 阶段 2: 运行 VGGT4D 生成粗 mask")
+    # --- Stage 2: VGGT4D coarse masks ---
+    print("\n>>> Stage 2: running VGGT4D for coarse masks")
     try:
         run_vggt4d(chunked_parent_dir, raw_mask_parent_dir)
     except subprocess.CalledProcessError as e:
-        print(f"VGGT4D 运行失败: {e}")
+        print(f"VGGT4D failed: {e}")
         return
 
-    # --- 阶段 3: SAM 3 精修 ---
+    # --- Stage 3: SAM3 refinement ---
     active_mask_parent_dir = raw_mask_parent_dir
     if ENABLE_SAM3_REFINE:
-        print("\n>>> 阶段 3: 使用 SAM 3 精修 VGGT4D 粗 mask")
+        print("\n>>> Stage 3: refining VGGT4D rough masks with SAM3")
         try:
             for scene_dir in scene_dirs:
                 refine_chunk_masks_with_sam3(
@@ -597,36 +611,36 @@ def main_pipeline(selected_scene):
                 )
             active_mask_parent_dir = refined_mask_parent_dir
         except Exception as e:
-            print(f"SAM 3 精修失败，将退回只使用 VGGT4D 粗 mask。错误信息: {e}")
+            print(f"SAM3 refinement failed; falling back to VGGT4D rough masks. Error: {e}")
             active_mask_parent_dir = raw_mask_parent_dir
 
-    # chunk 图像只在 VGGT4D + SAM 3 阶段有用，到这里可以删掉
+    # Chunk images are only needed during VGGT4D/SAM3 processing.
     if chunked_parent_dir.exists():
         shutil.rmtree(chunked_parent_dir)
 
     run_summary_parts = [f"time={datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", f"scene={selected_scene}"]
-    # --- 阶段 4: 拼接完整 mask + ProPainter 修复 ---
-    print("\n>>> 阶段 4: 合并 mask 并进行视频修复")
+    # --- Stage 4: merge masks and run ProPainter ---
+    print("\n>>> Stage 4: merging masks and running video inpainting")
     for scene_dir in scene_dirs:
         scene_name = scene_dir.name
         scene_result_parts = [f"{scene_name}"]
         scene_output_dir = OUTPUT_BASE_DIR / scene_name
         inpainting_out_dir = scene_output_dir / "inpainted_results"
 
-        # 4.1 合并完整 mask
+        # 4.1 Merge full-sequence masks.
         final_scene_mask_dir = merge_masks(
             orig_dir=scene_dir,
             mask_parent_dir=active_mask_parent_dir,
             scene_name=scene_name
         )
 
-        # 额外复制一份到 merged_masks，方便统一查看
+        # Keep an additional copy under merged_masks for inspection.
         merged_scene_dir = merged_mask_parent_dir / scene_name
         if merged_scene_dir.exists():
             shutil.rmtree(merged_scene_dir)
         shutil.copytree(final_scene_mask_dir, merged_scene_dir)
 
-        # 4.2 评估 mask
+        # 4.2 Evaluate masks.
         j_m, j_r = None, None
         gt_mask_dir = MASK_GT_DIRS.get(scene_name, None)
 
@@ -640,22 +654,22 @@ def main_pipeline(selected_scene):
                 scene_result_parts.append("JM=None")
                 scene_result_parts.append("JR=None")
         else:
-            print(f"[{scene_name}] 未找到 mask GT: {gt_mask_dir}")
+            print(f"[{scene_name}] Mask GT not found: {gt_mask_dir}")
             scene_result_parts.append("JM=NoGT")
             scene_result_parts.append("JR=NoGT")
             
-        # 4.3 ProPainter 修复
+        # 4.3 ProPainter inpainting.
         try:
             run_propainter(scene_dir, final_scene_mask_dir, inpainting_out_dir)
         except subprocess.CalledProcessError as e:
-            print(f"ProPainter 修复 {scene_name} 失败: {e}")
+            print(f"ProPainter failed for {scene_name}: {e}")
             continue
             
         run_summary_parts.append("|".join(scene_result_parts))
 
     append_result_line(RESULT_TXT_PATH, " || ".join(run_summary_parts))
-    print(f"指标已追加写入: {RESULT_TXT_PATH}")
-    print(f"\n全部处理完成！结果已保存到: {OUTPUT_BASE_DIR}")
+    print(f"Metrics appended to: {RESULT_TXT_PATH}")
+    print(f"\nAll processing complete. Results saved to: {OUTPUT_BASE_DIR}")
 
 
 if __name__ == "__main__":

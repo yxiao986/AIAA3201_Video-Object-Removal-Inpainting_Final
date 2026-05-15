@@ -12,6 +12,9 @@ import json
 current_script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root_dir = os.path.abspath(os.path.join(current_script_dir, "..", "..", ".."))
 sys.path.append(project_root_dir)
+PROPAINTER_DIR = os.path.join(project_root_dir, "third_party", "ProPainter")
+DIFFUERASER_DIR = os.path.join(project_root_dir, "third_party", "DiffuEraser")
+PYTHON_EXEC = sys.executable
 
 from huggingface_hub import hf_hub_download
 from utils.diffusion_utils import run_sd_inpainting, get_auto_keyframe_indices
@@ -32,20 +35,32 @@ def parse_args():
                         help="Choose the model to run: baseline (ProPainter), sd2d, or diffueraser.")
                         
     parser.add_argument("--output_base_dir", type=str, default=os.path.join(project_root_dir, "results", "part3", "ProPainter_Explore"))
+    parser.add_argument("--propainter_dir", type=str, default=PROPAINTER_DIR,
+                        help="Path to the local ProPainter repository.")
+    parser.add_argument("--diffueraser_dir", type=str, default=DIFFUERASER_DIR,
+                        help="Path to the local DiffuEraser repository.")
+    parser.add_argument("--python_exec", type=str, default=PYTHON_EXEC,
+                        help="Python executable used for external inference scripts.")
     return parser.parse_args()
 
+
+def configure_external_tools(args):
+    global PROPAINTER_DIR, DIFFUERASER_DIR, PYTHON_EXEC
+    PROPAINTER_DIR = os.path.abspath(args.propainter_dir)
+    DIFFUERASER_DIR = os.path.abspath(args.diffueraser_dir)
+    PYTHON_EXEC = args.python_exec
+
 def run_propainter(data_dir, mask_dir, output_dir):
-    propainter_dir = os.path.join(project_root_dir, "third_party", "ProPainter")
-    propainter_script = os.path.join(propainter_dir, "inference_propainter.py")
+    propainter_script = os.path.join(PROPAINTER_DIR, "inference_propainter.py")
     custom_env = os.environ.copy()
     custom_env["PYTHONPATH"] = project_root_dir + os.pathsep + custom_env.get("PYTHONPATH", "")
     try:
         subprocess.run([
-            sys.executable, propainter_script,
+            PYTHON_EXEC, propainter_script,
             "--video", os.path.abspath(data_dir),
             "--mask", os.path.abspath(mask_dir),
             "--output", os.path.abspath(output_dir)
-        ], check=True, cwd=propainter_dir, env=custom_env, stdout=subprocess.DEVNULL)
+        ], check=True, cwd=PROPAINTER_DIR, env=custom_env, stdout=subprocess.DEVNULL)
     except subprocess.CalledProcessError as e:
         print(f"[Error] ProPainter execution failed: {e}")
 
@@ -74,11 +89,10 @@ def generate_video_from_frames(frame_dir, output_path, target_fps=30.0):
     return True
 
 def run_diffueraser_inference(data_dir, mask_dir, output_dir):
-    diffueraser_dir = os.path.join(project_root_dir, "third_party", "DiffuEraser")
-    if not os.path.isdir(diffueraser_dir):
+    if not os.path.isdir(DIFFUERASER_DIR):
         raise FileNotFoundError("DiffuEraser not found. Please clone it.")
     
-    diffueraser_script = os.path.join(diffueraser_dir, "run_diffueraser.py") 
+    diffueraser_script = os.path.join(DIFFUERASER_DIR, "run_diffueraser.py") 
     clean_data_dir = os.path.normpath(data_dir)
     clean_mask_dir = os.path.normpath(mask_dir)
     input_video_mp4 = f"{clean_data_dir}.mp4"
@@ -91,11 +105,11 @@ def run_diffueraser_inference(data_dir, mask_dir, output_dir):
     print("\n      -> [DiffuEraser] Starting native inference...")
     try:
         subprocess.run([
-            sys.executable, diffueraser_script,
+            PYTHON_EXEC, diffueraser_script,
             "--input_video", os.path.abspath(input_video_mp4),
             "--input_mask", os.path.abspath(input_mask_mp4),
             "--save_path", os.path.abspath(output_dir)
-        ], check=True, cwd=diffueraser_dir)
+        ], check=True, cwd=DIFFUERASER_DIR)
     except subprocess.CalledProcessError as e:
         print(f"[Error] DiffuEraser execution failed: {e}")
 
@@ -165,6 +179,7 @@ def run_pipeline(data_dir, mask_dir, output_dir, dataset_name, prompt, n_keyfram
 
 def main():
     args = parse_args()
+    configure_external_tools(args)
     print(f"\n{'='*70}\nPart 3: Generative Evaluation Pipeline [{args.dataset_name} | {args.method.upper()}]\n{'='*70}")
     
     method_base_dir = os.path.join(args.output_base_dir, args.dataset_name, args.method)
