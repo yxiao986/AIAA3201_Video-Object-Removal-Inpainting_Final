@@ -7,7 +7,7 @@ This folder contains the project-specific scripts modified for Project 3. It doe
 ```text
 README_YY.md      Project structure, data layout, upstream repos, and upload notes.
 README_ENV2.md    Part 1 baseline, Part 2 SAM2/Cutie masks, ProPainter, and mask evaluation.
-README_ENV3.md    Part 3 VGGT4D and Pi3/Pi3X experiments.
+README_ENV3.md    Part 3 VGGT4D, Pi3/Pi3X, and SAM3 experiments.
 README_ENV4.md    Part 3 VGGT4D and MapAnything experiments.
 ```
 
@@ -33,6 +33,9 @@ code/
 │   │   └── pi3/
 │   │       ├── pi3_vggt4d_basic.py
 │   │       └── pi3_vggt4d_hybrid.py
+│   │       └── sam3/
+│   │           ├── SAM3_VGGT4D.py
+│   │           └── SAM3_VGGT4D_improve.py
 │   └── env4/
 │       └── map-anything/
 │           ├── map_vggt4d_basic.py
@@ -65,6 +68,15 @@ checkpoints/
 ├── model_tracker_fixed_e20.pt
 └── yolov8n-seg.pt
 
+external/
+├── VGGT4D/
+│   └── ckpts/
+│       └── model_tracker_fixed_e20.pt
+├── sam3/
+└── sam3_ms/
+    ├── sam3.pt
+    └── bpe_simple_vocab_16e6.txt.gz
+
 outputs/
 ├── part1/
 ├── masks/
@@ -72,7 +84,7 @@ outputs/
 └── part3/
 ```
 
-For VGGT4D/Pi3/MapAnything scripts, `data/scenes` should contain one folder per scene:
+For VGGT4D/Pi3/SAM3/MapAnything scripts, `data/scenes` should contain one folder per scene:
 
 ```text
 data/scenes/
@@ -92,6 +104,7 @@ Clone the upstream repositories outside or beside this project:
 mkdir -p external
 
 git clone https://github.com/facebookresearch/sam2.git external/sam2
+git clone https://github.com/facebookresearch/sam3.git external/sam3
 git clone https://github.com/hkchengrex/Cutie.git external/Cutie
 git clone https://github.com/sczhou/ProPainter.git external/ProPainter
 git clone https://github.com/3DAgentWorld/VGGT4D.git external/VGGT4D
@@ -115,6 +128,8 @@ env3
 ├── part3/env3/VGGT4D/vggt4d_basic.py
 ├── part3/env3/pi3/pi3_vggt4d_basic.py
 └── part3/env3/pi3/pi3_vggt4d_hybrid.py
+├── part3/env3/sam3/SAM3_VGGT4D.py
+└── part3/env3/sam3/SAM3_VGGT4D_improve.py
 
 env4
 ├── part3/env4/map-anything/map_vggt4d_basic.py
@@ -125,6 +140,7 @@ env4
 
 - Keep this repository as project glue code, not a copy of all upstream repositories.
 - Do not commit checkpoints such as `*.pt`, `*.pth`, or `*.safetensors`.
+- Do not commit `external/sam3_ms/sam3.pt` or `external/sam3_ms/bpe_simple_vocab_16e6.txt.gz`; document the download steps in `README_ENV3.md`.
 - Do not commit raw datasets, generated masks, generated videos, or output folders.
 - Put download links and exact run commands in the environment-specific README files.
 - Before submission, remove copied upstream README files if they are only local notes.

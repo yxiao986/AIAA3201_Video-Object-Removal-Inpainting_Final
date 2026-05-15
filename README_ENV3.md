@@ -99,8 +99,8 @@ PYTHONPATH=external/VGGT4D:external/sam3 python part3/env3/SAM3_VGGT4D/SAM3_VGGT
   --input_dir data/scenes \
   --output_dir outputs/part3/sam3_vggt4d \
   --vggt_ckpt external/VGGT4D/ckpts/model_tracker_fixed_e20.pt \
-  --sam3_ckpt external/sam3/ckpts/sam3.pt \
-  --sam3_bpe external/sam3/ckpts/bpe_simple_vocab_16e6.txt.gz \
+  --sam3_ckpt external/sam3_ms/ckpts/sam3.pt \
+  --sam3_bpe external/sam3_ms/ckpts/bpe_simple_vocab_16e6.txt.gz \
   --gt_bmx data/gt_masks/bmx-trees \
   --gt_tennis data/gt_masks/tennis \
   --scene both \
@@ -114,8 +114,8 @@ PYTHONPATH=external/VGGT4D:external/sam3 python part3/env3/SAM3_VGGT4D/SAM3_VGGT
   --input_dir data/scenes \
   --output_dir outputs/part3/sam3_vggt4d_improve \
   --vggt_ckpt external/VGGT4D/ckpts/model_tracker_fixed_e20.pt \
-  --sam3_ckpt external/sam3/ckpts/sam3.pt \
-  --sam3_bpe external/sam3/ckpts/bpe_simple_vocab_16e6.txt.gz \
+  --sam3_ckpt external/sam3_ms/ckpts/sam3.pt \
+  --sam3_bpe external/sam3_ms/ckpts/bpe_simple_vocab_16e6.txt.gz \
   --gt_bmx data/gt_masks/bmx-trees \
   --gt_tennis data/gt_masks/tennis \
   --scene both \
