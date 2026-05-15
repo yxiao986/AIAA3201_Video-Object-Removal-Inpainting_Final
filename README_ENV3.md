@@ -1,6 +1,6 @@
-# Environment env3: VGGT4D and Pi3
+# Environment env3: VGGT4D, Pi3 and SAM3
 
-Use this environment for Part 3 experiments based on VGGT4D and Pi3/Pi3X.
+Use this environment for Part 3 experiments based on VGGT4D, Pi3/Pi3X and SAM3.
 
 ## Installation
 
@@ -21,7 +21,25 @@ cd ../..
 cd external/Pi3
 pip install -r requirements.txt
 cd ../..
+
+cd external/sam3
+pip install -e .
+cd ../..
+
+# SAM3 model files
+# This folder is used by SAM3_VGGT4D/SAM3_VGGT4D.py and SAM3_VGGT4D/SAM3_VGGT4D_improve.py
+mkdir -p external/sam3_ms
+
+# Login is required before downloading gated SAM3 model files
+huggingface-cli login
+
+huggingface-cli download facebook/sam3 \
+  sam3.pt \
+  bpe_simple_vocab_16e6.txt.gz \
+  --local-dir external/sam3_ms \
+  --local-dir-use-symlinks False
 ```
+Before first use, request access to the SAM3 checkpoint on HuggingFace and login, if Sam3 does not pass on Huggingface, it can also be obtained on ModelScope.  
 
 ## VGGT4D Baseline Dynamic Masks
 
@@ -73,4 +91,33 @@ If HuggingFace access is slow, add:
 
 ```bash
 --hf_endpoint https://hf-mirror.com
+```
+## SAM3 + VGGT4D
+
+```bash
+PYTHONPATH=external/VGGT4D:external/sam3 python part3/env3/SAM3_VGGT4D/SAM3_VGGT4D.py \
+  --input_dir data/scenes \
+  --output_dir outputs/part3/sam3_vggt4d \
+  --vggt_ckpt external/VGGT4D/ckpts/model_tracker_fixed_e20.pt \
+  --sam3_ckpt external/sam3/ckpts/sam3.pt \
+  --sam3_bpe external/sam3/ckpts/bpe_simple_vocab_16e6.txt.gz \
+  --gt_bmx data/gt_masks/bmx-trees \
+  --gt_tennis data/gt_masks/tennis \
+  --scene both \
+  --chunk_size 20
+```
+
+The improved version adds stronger morphology and component filtering:
+
+```bash
+PYTHONPATH=external/VGGT4D:external/sam3 python part3/env3/SAM3_VGGT4D/SAM3_VGGT4D_improve.py \
+  --input_dir data/scenes \
+  --output_dir outputs/part3/sam3_vggt4d_improve \
+  --vggt_ckpt external/VGGT4D/ckpts/model_tracker_fixed_e20.pt \
+  --sam3_ckpt external/sam3/ckpts/sam3.pt \
+  --sam3_bpe external/sam3/ckpts/bpe_simple_vocab_16e6.txt.gz \
+  --gt_bmx data/gt_masks/bmx-trees \
+  --gt_tennis data/gt_masks/tennis \
+  --scene both \
+  --chunk_size 20
 ```
